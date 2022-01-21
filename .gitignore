@@ -396,3 +396,11 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# WSL meta files
+*.Identifier
+
+# Translator builds .asm files
+*.asm
+
+VMTranslator

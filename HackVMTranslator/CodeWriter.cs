@@ -96,7 +96,7 @@ namespace HackVMTranslator
             str += "D;JEQ\n";
             str += $"(FALSE_{LOGIC_LABEL_COUNT})\n"; // Label here is for legibility
             str += "@SP\n";
-            str += "A=M-1\n"; // TODO: Do we need this line? 
+            str += "A=M-1\n";
             str += "M=0\n";
             str += $"@END_{LOGIC_LABEL_COUNT}\n";
             str += "0;JMP\n";

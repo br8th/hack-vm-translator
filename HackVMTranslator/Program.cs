@@ -8,8 +8,8 @@ namespace HackVMTranslator
     {
         static void Main(string[] args)
         {
-            string filePath = @"D:\Code\HackVMTranslator\HackVMTranslator\TestFiles\StackArithmetic\StackTest\StackTest.vm";
-            var outputFileName = $"{Path.GetDirectoryName(filePath)}\\{Path.GetFileNameWithoutExtension(filePath)}.asm";
+            string filePath = args[0];
+            var outputFileName = Path.Combine(Path.GetDirectoryName(filePath), Path.GetFileNameWithoutExtension(filePath)) + ".asm";
 
             Parser parser = new Parser(filePath);
             CodeWriter codeWriter = new CodeWriter(outputFileName);
