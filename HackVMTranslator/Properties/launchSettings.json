@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "HackVMTranslator": {
-      "commandName": "Project",
-      "commandLineArgs": "\"D:\\Code\\HackVMTranslator\\HackVMTranslator\\TestFiles\\StackArithmetic\\StackTest\\StackTest.vm\""
-    }
-  }
-}

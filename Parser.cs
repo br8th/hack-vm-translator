@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace HackVMTranslator
+namespace VMTranslator
 {
     // Parses each VM command into its lexical elements
     // Handles parsing of a single .vm file

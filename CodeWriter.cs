@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace HackVMTranslator
+namespace VMTranslator
 {
     // Writes the assembly code that implements the parsed command
     internal class CodeWriter
     {
         private StreamWriter writer;
+        private string outputFileName;
         private const string SP_PLUS_PLUS = "@SP\nM=M+1\n"; // SP++
         private const string SP_MINUS_MINUS = "@SP\nM=M-1\n"; // SP--
         private static int LOGIC_LABEL_COUNT = 0;
@@ -16,6 +17,7 @@ namespace HackVMTranslator
         public CodeWriter(string outputFile)
         {
             this.writer = new StreamWriter(outputFile);
+            this.outputFileName = Path.GetFileNameWithoutExtension(outputFile);
         }
 
         // Writes to the output file the assembly code that implements the given command.
@@ -182,6 +184,15 @@ namespace HackVMTranslator
                     case "constant":
                         writer.WriteLine(PtrSPEqualsX(index));
                         break;
+                    case "static":
+                        writer.WriteLine(WritePushStatic(index));
+                        break;
+                    case "temp":
+                        writer.WriteLine(WritePushTemp(index));
+                        break;
+                    case "pointer":
+                        writer.WriteLine(WritePushPointer(index));
+                        break;
                 }
             }
             
@@ -200,9 +211,115 @@ namespace HackVMTranslator
                     case "that":
                         writer.WriteLine(WritePopSegment("THAT", index));
                         break;
+                    case "static":
+                        writer.WriteLine(WritePopStatic(index));
+                        break;
+                    case "temp":
+                        writer.WriteLine(WritePopTemp(index));
+                        break;
+                    case "pointer":
+                        writer.WriteLine(WritePopPointer(index));
+                        break;
                 }
             }
 
+        }
+
+        private string WritePopStatic(int index)
+        {
+            var str = SP_MINUS_MINUS;
+
+            str += "A=M\n";
+            str += "D=M\n";
+
+            str += $"@{outputFileName}.{index}\n";
+            str += "M=D\n";
+
+            return str;
+        }
+        private string WritePushStatic(int index)
+        {
+            var str = $"@{outputFileName}.{index}\n";
+            str += "D=M\n";
+
+            str += "@SP\n";
+            str += "A=M\n";
+            str += "M=D\n";
+            str += SP_PLUS_PLUS;
+
+            return str;
+        }
+        private string WritePushTemp(int index)
+        {
+            var str = $"@{index}\n";
+            str += "D=A\n";
+
+            str += $"@5\n";
+            str += "A=A+D\n";
+            str += "D=M\n";
+
+            str += "@SP\n";
+            str += "A=M\n";
+            str += "M=D\n";
+            str += SP_PLUS_PLUS;
+
+            return str;
+        }
+        private string WritePopTemp(int index)
+        {
+            var str = $"@{index}\n";
+            str += "D=A\n";
+
+            str += $"@5\n";
+            str += "D=D+A\n";
+
+            str += $"@temp_temp_{index}\n";
+            str += "M=D\n";
+
+            str += SP_MINUS_MINUS;
+
+            str += "A=M\n";
+            str += "D=M\n";
+
+            str += $"@temp_temp_{index}\n";
+            str += "A=M\n";
+            str += "M=D\n";
+
+            return str;
+        }
+        private string WritePopPointer(int index)
+        {
+            if (index != 0 && index != 1)
+                throw new ArgumentException("Invalid param. Value should be either 0 or 1");
+
+            // SP--, THIS/THAT = *SP
+            var str = SP_MINUS_MINUS;
+            str += "A=M\n";
+            str += "D=M\n";
+
+            str += (index == 0) ? "@THIS\n" : "@THAT\n";
+
+            str += "M=D\n";
+
+            return str;
+        }
+        private string WritePushPointer(int index)
+        {
+            if (index != 0 && index != 1)
+                throw new ArgumentException("Invalid param. Value should be either 0 or 1");
+
+            // *SP=THIS/THAT, SP++
+
+            var str = (index == 0) ? "@THIS\n" : "@THAT\n";
+            str += "D=M\n";
+
+            str += "@SP\n";
+            str += "A=M\n";
+            str += "M=D\n";
+
+            str += SP_PLUS_PLUS;
+
+            return str;
         }
         
         private string WritePopSegment(string segment, int index)
@@ -211,12 +328,17 @@ namespace HackVMTranslator
             str += "D=A\n";
 
             str += $"@{segment}\n";
-            str += "A=M+D\n";
-            str += "D=M\n";
+            str += "D=D+M\n";
+
+            str += $"@temp_{segment}_{index}\n";
+            str += "M=D\n";
 
             str += SP_MINUS_MINUS;
 
-            str += "@SP\n";
+            str += "A=M\n";
+            str += "D=M\n";
+
+            str += $"@temp_{segment}_{index}\n";
             str += "A=M\n";
             str += "M=D\n";
 
@@ -253,12 +375,24 @@ namespace HackVMTranslator
         // segment is one of the memory segments in hack (SP, LCL, ARG, THIS, THAT)
         private string PtrSegmentEqualsX(string segment, int x)
         {
-            var str = $"@{x}\n";
-            str += "D=A\n";
+            //StringBuilder sb = new StringBuilder();
 
-            str += $"@{segment}\n";
-            str += "A=M\n";
-            str += "M=D\n";
+            //sb.AppendLine($"@{x}");
+            //sb.AppendLine("D=A");
+            //sb.AppendLine($"@{segment}");
+            //sb.AppendLine("A=M");
+            //sb.AppendLine("M=D");
+            //sb.AppendLine("@SP");
+            //sb.AppendLine("M=M+1");
+
+            //return sb.ToString();
+
+            var str = $"@{x}\r\n";
+            str += "D=A\r\n";
+
+            str += $"@{segment}\r\n";
+            str += "A=M\r\n";
+            str += "M=D\r\n";
             str += SP_PLUS_PLUS;
 
             return str;

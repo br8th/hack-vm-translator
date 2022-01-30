@@ -1,10 +1,10 @@
 ﻿using System;
 using System.IO;
 
-namespace HackVMTranslator
+namespace VMTranslator
 {
     // Takes File.vm as input, produces File.asm as output
-    internal class Program
+    internal class VMTranslator
     {
         static void Main(string[] args)
         {

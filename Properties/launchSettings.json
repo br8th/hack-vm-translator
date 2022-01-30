@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "HackVMTranslator": {
+      "commandName": "Project",
+      "commandLineArgs": "\"D:\\Code\\HackVMTranslator\\TestFiles\\MemoryAccess\\StaticTest\\StaticTest.vm\""
+    }
+  }
+}
