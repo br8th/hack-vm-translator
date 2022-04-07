@@ -9,15 +9,28 @@ namespace VMTranslator
     internal class CodeWriter
     {
         private StreamWriter writer;
+        private StringBuilder sb;
         private string outputFileName;
         private const string SP_PLUS_PLUS = "@SP\nM=M+1\n"; // SP++
         private const string SP_MINUS_MINUS = "@SP\nM=M-1\n"; // SP--
         private static int LOGIC_LABEL_COUNT = 0;
+        private static int FUNCTION_CALL_LABEL_COUNT = 0;
+        private static int FUNCTION_RETURN_LABEL_COUNT = 0;
 
         public CodeWriter(string outputFile)
         {
             this.writer = new StreamWriter(outputFile);
+            // TODO: Clean up
             this.outputFileName = Path.GetFileNameWithoutExtension(outputFile);
+            this.sb = new StringBuilder();
+        }
+
+        // Informs the code writer that the translation of a new vm file has started
+        public void SetFileName(string fileName)
+        {
+            writer.WriteLine($"// Transalation of file: {fileName} has started.");
+            writer.WriteLine("// Updating name for static variables..");
+            this.outputFileName = Path.GetFileNameWithoutExtension(fileName);
         }
 
         // Writes to the output file the assembly code that implements the given command.
@@ -39,7 +52,7 @@ namespace VMTranslator
                     operatr = "-";
                     writer.WriteLine(WriteAddSub(operatr));
                     break;
-                
+
                 case "eq":
                     operatr = "=";
                     writer.WriteLine(WriteLogicalEq(operatr));
@@ -49,12 +62,12 @@ namespace VMTranslator
                     operatr = "&";
                     writer.WriteLine(WriteAddSub(operatr));
                     break;
-                
+
                 case "or":
                     operatr = "|";
                     writer.WriteLine(WriteAddSub(operatr));
                     break;
-                
+
                 case "lt":
                     operatr = "<";
                     writer.WriteLine(WriteLogical(operatr));
@@ -80,7 +93,7 @@ namespace VMTranslator
         {
             var str = "@SP\n";
             str += "A=M-1\n";
-            str += $"M={operatr}M\n"; 
+            str += $"M={operatr}M\n";
 
             return str;
         }
@@ -90,7 +103,7 @@ namespace VMTranslator
         {
             var str = SP_MINUS_MINUS;
             str += "A=M\n";
-            str += "D=M\n"; 
+            str += "D=M\n";
             str += "A=A-1\n";
             str += "D=D-M\n";
 
@@ -119,7 +132,7 @@ namespace VMTranslator
         {
             var str = SP_MINUS_MINUS;
             str += "A=M\n";
-            str += "D=M\n"; 
+            str += "D=M\n";
             str += "A=A-1\n";
 
             if (operatr == "<")
@@ -152,7 +165,7 @@ namespace VMTranslator
         {
             var str = "@SP\n";
             str += "A=M-1\n";
-            str += "D=M\n"; 
+            str += "D=M\n";
             str += "A=A-1\n";
             str += $"M=M{operatr}D\n";
             str += SP_MINUS_MINUS;
@@ -195,7 +208,7 @@ namespace VMTranslator
                         break;
                 }
             }
-            
+
             if (command == "pop")
             {
                 switch (segment) {
@@ -321,7 +334,7 @@ namespace VMTranslator
 
             return str;
         }
-        
+
         private string WritePopSegment(string segment, int index)
         {
             var str = $"@{index}\n";
@@ -370,23 +383,24 @@ namespace VMTranslator
             return PtrSegmentEqualsX("SP", x);
         }
 
-        // Returns assembly for pseudocode in the syntax *SP = x
+        // Returns assembly for pseudocode in the syntax *SP = x, SP++
         // Where x is a positive integer
         // segment is one of the memory segments in hack (SP, LCL, ARG, THIS, THAT)
         private string PtrSegmentEqualsX(string segment, int x)
         {
-            //StringBuilder sb = new StringBuilder();
+            // TODO: Something odd about the online course grader. If I change the first few lines
+            // to windows style line endings, it works.
 
-            //sb.AppendLine($"@{x}");
+            //sb.Clear();
+            //sb.AppendLine($"@{x}\r\n");
             //sb.AppendLine("D=A");
             //sb.AppendLine($"@{segment}");
             //sb.AppendLine("A=M");
             //sb.AppendLine("M=D");
-            //sb.AppendLine("@SP");
-            //sb.AppendLine("M=M+1");
+
+            //sb.AppendLine(SP_PLUS_PLUS);
 
             //return sb.ToString();
-
             var str = $"@{x}\r\n";
             str += "D=A\r\n";
 
@@ -396,6 +410,251 @@ namespace VMTranslator
             str += SP_PLUS_PLUS;
 
             return str;
+        }
+
+        // Returns assembly for pseudocode in the syntax *SP = *Segment, SP++
+        // Where Segment is one of the memory segments in hack (LCL, ARG, THIS, THAT)
+        private string PtrSPEqualsPtrSegment(string segment)
+        {
+            sb.Clear();
+
+            sb.AppendLine($"@{segment}");
+            sb.AppendLine("D=M");
+            sb.AppendLine($"@SP");
+            sb.AppendLine("A=M");
+            sb.AppendLine("M=D");
+
+            return sb.ToString();
+        }
+
+
+        // The assembly that effects the if-goto command
+        public void WriteIf(string label)
+        {
+            var labelName = $"{outputFileName.ToUpper()}${label}";
+
+            sb.Clear();
+            sb.AppendLine($"// if-goto {labelName}");
+            sb.AppendLine($"@SP");
+            sb.AppendLine($"AM=M-1");
+            sb.AppendLine($"D=M");
+
+            sb.AppendLine($"@{labelName}");
+            sb.AppendLine("D;JNE");
+
+            writer.WriteLine(sb.ToString());
+        }
+
+        // The assembly that effects the goto command
+        public void WriteGoto(string label)
+        {
+            var labelName = $"{outputFileName.ToUpper()}${label}";
+
+            writer.WriteLine($"// goto {labelName}"); // debug
+            writer.WriteLine($"@{labelName}");
+            writer.WriteLine("0;JMP");
+        }
+
+        // The assembly that effects the label command
+        public void WriteLabel(string label)
+        {
+            var labelName = $"{outputFileName.ToUpper()}${label}";
+            writer.WriteLine($"// label {labelName}"); // debug
+            writer.WriteLine($"({labelName})");
+        }
+
+        // The assembly that effects the call command
+        // call functionName nArgs
+        public void WriteCall(string functionName, int numArgs)
+        {
+            //var functionName = $"{outputFileName}.{name}";
+            var lblReturnAddr = $"{functionName}$ret.{FUNCTION_CALL_LABEL_COUNT}";
+
+            writer.WriteLine($"// call {functionName} numArgs{numArgs}"); // debug
+
+            // Assembly to save the caller's state
+            // 1. Push returnAddress (using label declared below)
+            writer.WriteLine($"@{lblReturnAddr}");
+            writer.WriteLine("D=A");
+            writer.WriteLine("@SP");
+            writer.WriteLine("A=M");
+            writer.WriteLine("M=D");
+            writer.WriteLine(SP_PLUS_PLUS);
+
+            // 2. Push LCL
+            writer.WriteLine(PtrSPEqualsPtrSegment("LCL"));
+            writer.WriteLine(SP_PLUS_PLUS);
+            // 3. Push ARG
+            writer.WriteLine(PtrSPEqualsPtrSegment("ARG"));
+            writer.WriteLine(SP_PLUS_PLUS);
+            // 4. Push THIS
+            writer.WriteLine(PtrSPEqualsPtrSegment("THIS"));
+            writer.WriteLine(SP_PLUS_PLUS);
+            // 5. Push THAT
+            writer.WriteLine(PtrSPEqualsPtrSegment("THAT"));
+            writer.WriteLine(SP_PLUS_PLUS); 
+
+            // Setup for the function call
+            // 6. Reposition ARG (To the called function's args) ARG = SP - nArgs - 5
+            writer.WriteLine("@5");
+            writer.WriteLine("D=A");
+
+            writer.WriteLine($"@{numArgs}");
+            writer.WriteLine($"D=A+D");
+
+            writer.WriteLine("@SP");
+            writer.WriteLine("D=M-D"); // SP - (nArgs + 5)
+
+            writer.WriteLine("@ARG");
+            writer.WriteLine("M=D");
+
+            // 7. Reposition LCL (For the called function) LCL = SP
+            writer.WriteLine("@SP");
+            writer.WriteLine("D=M");
+
+            writer.WriteLine("@LCL");
+            writer.WriteLine("M=D");
+
+            // 9. Go to Bar.Mult (called function name)
+            writer.WriteLine($"@{functionName}");
+            writer.WriteLine($"0;JMP");
+
+            // 10. (returnAddress) Foo$ret.1
+            writer.WriteLine($"({lblReturnAddr})");
+            writer.WriteLine();
+            FUNCTION_CALL_LABEL_COUNT++;
+        }
+
+        // The assembly that effects the call command
+        // function Bar.mult 2
+        public void WriteFunction(string functionName, int numLocalVars)
+        {
+            //var functionName = $"{outputFileName}.{name}";
+
+            sb.Clear();
+            sb.AppendLine($"// function {functionName} {numLocalVars}"); // debug
+
+            // 1. (Function.Name)
+            sb.AppendLine($"({functionName})");
+
+            for (int i = 0; i < numLocalVars; i++)
+            {
+                //  push constant 0 
+                sb.AppendLine(PtrSegmentEqualsX("SP", 0));
+            }
+
+            writer.WriteLine(sb.ToString());
+        }
+
+        // The assembly that effects the return command
+        public void WriteReturn()
+        {
+            var frame = $"frame.{FUNCTION_RETURN_LABEL_COUNT}";
+            var returnAddress = $"return-address.{FUNCTION_RETURN_LABEL_COUNT}";
+
+            writer.WriteLine($"// return"); // debug
+
+            // 1. Moves return value to the caller
+            // 2. Reinstates caller's state
+            // - endFrame = LCL
+            writer.WriteLine("@LCL");
+            writer.WriteLine("D=M");
+            writer.WriteLine($"@{frame}");
+            writer.WriteLine("M=D");
+
+            // - returnAddress = *(endFrame - 5): Review line
+            writer.WriteLine("@5"); 
+            writer.WriteLine("D=A");
+
+            writer.WriteLine($"@{frame}");
+            writer.WriteLine("A=M-D");
+            writer.WriteLine("D=M");
+
+            writer.WriteLine($"@{returnAddress}");
+            writer.WriteLine("M=D");
+
+            // - *ARG = pop()
+            writer.WriteLine(SP_MINUS_MINUS);
+            writer.WriteLine("@SP");
+            writer.WriteLine("A=M");
+            writer.WriteLine("D=M");
+
+            writer.WriteLine("@ARG");
+            writer.WriteLine("A=M");
+            writer.WriteLine("M=D");
+
+            // - SP = ARG + 1
+            writer.WriteLine("@ARG");
+            writer.WriteLine("D=M+1");
+            writer.WriteLine("@SP");
+            writer.WriteLine("M=D");
+
+            // - THAT = *(endFrame - 1)
+            writer.WriteLine($"@{frame}");
+            writer.WriteLine("A=M-1");
+            writer.WriteLine("D=M");
+
+            writer.WriteLine("@THAT");
+            writer.WriteLine("M=D");
+
+            // - THIS = *(endFrame - 2)
+            writer.WriteLine("@2"); 
+            writer.WriteLine("D=A");
+
+            writer.WriteLine($"@{frame}");
+            writer.WriteLine("A=M-D");
+            writer.WriteLine("D=M");
+
+            writer.WriteLine("@THIS");
+            writer.WriteLine("M=D");
+
+            // - ARG = *(endFrame - 3)
+            writer.WriteLine("@3"); 
+            writer.WriteLine("D=A");
+
+            writer.WriteLine($"@{frame}");
+            writer.WriteLine("A=M-D");
+            writer.WriteLine("D=M");
+
+            writer.WriteLine("@ARG");
+            writer.WriteLine("M=D");
+
+            // - LCL = *(endFrame - 4)
+            writer.WriteLine("@4"); 
+            writer.WriteLine("D=A");
+
+            writer.WriteLine($"@{frame}");
+            writer.WriteLine("A=M-D");
+            writer.WriteLine("D=M");
+
+            writer.WriteLine("@LCL");
+            writer.WriteLine("M=D");
+
+            // - goto returnAddress popped from stack
+            writer.WriteLine($"@{returnAddress}");
+            writer.WriteLine("A=M");
+            writer.WriteLine("0;JMP");
+
+            FUNCTION_RETURN_LABEL_COUNT++;
+        }
+
+        // The bootstrap code
+        public void WriteInit()
+        {
+            // We need windows style line endings on the first line for the autograder.
+
+            // SP = 256
+            sb.Clear();
+            sb.AppendLine($"// init\r\n"); // debug
+            sb.AppendLine($"@256");
+            sb.AppendLine($"D=A");
+            sb.AppendLine($"@SP");
+            sb.AppendLine($"M=D");
+
+            writer.WriteLine(sb.ToString());
+
+            // Call Sys.Init
+            this.WriteCall("Sys.init", 0);
         }
 
         // Closes the output file

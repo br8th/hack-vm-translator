@@ -36,7 +36,7 @@ namespace VMTranslator
         {
             if (GetCommandType() == CommandType.C_ARITHMETIC)
             {
-                return currentLine;
+                return ParseAlpha(currentLine.ToCharArray());
             }
 
             return currentLine.Split(' ')[1];
@@ -53,37 +53,76 @@ namespace VMTranslator
                 case CommandType.C_POP:
                 case CommandType.C_FUNCTION:
                 case CommandType.C_CALL:
-                    return currentLine.Split(' ')[2];
+                    return ParseNumber(currentLine.Split(' ')[2].ToCharArray());
                 default:
                     return null;
             }
         }
 
+        // To handle comments after the 1st arg in logical commands e.g.
+        // lt    // checks if n<2
+        private string ParseAlpha(char[] str)
+        {
+            if (str.Length == 0)
+                return null;
+
+            int i = 0;
+
+            while (i < str.Length && Char.IsLetter(str[i]))
+            {
+                i++;
+            }
+
+            ArraySegment<char> number = new ArraySegment<char>(str, 0, i);
+            return new string(number);
+        }
+
+        // push constant 4000	// test THIS and THAT context save
+        // to handle comments after the 2nd arg,
+        // 400\t// test THIS and THAT context save
+        private string ParseNumber(char[] str)
+        {
+            if (str.Length == 0)
+                return null;
+
+            int i = 0;
+
+            while (i < str.Length && Char.IsDigit(str[i]))
+            {
+                i++;
+            }
+
+            ArraySegment<char> number = new ArraySegment<char>(str, 0, i);
+            return new string(number);
+        }
+
         // Returns a constant representing the type of the current command
         public CommandType GetCommandType()
         {
-            var numWords = currentLine.Split(' ').Length;
+            var firstWord = currentLine.Split(' ')[0];
 
-            // if the command is one word; sub, add, lt, eq, gt then it's an arithmetic operation
-            if (numWords == 1)
+            switch(firstWord)
             {
-                return CommandType.C_ARITHMETIC;
+                case "pop":
+                    return CommandType.C_POP;
+                case "push":
+                    return CommandType.C_PUSH;
+                case "label":
+                    return CommandType.C_LABEL;
+                case "call":
+                    return CommandType.C_CALL;
+                case "function":
+                    return CommandType.C_FUNCTION;
+                case "return":
+                    return CommandType.C_RETURN;
+                case "goto":
+                    return CommandType.C_GOTO;
+                case "if-goto":
+                    return CommandType.C_IF;
+                // sub, add, lt, eq, gt 
+                default:
+                    return CommandType.C_ARITHMETIC;
             }
-            
-            if (numWords == 3)
-            {
-                var firstWord = currentLine.Split(' ')[0];
-
-                switch(firstWord)
-                {
-                    case "pop":
-                        return CommandType.C_POP;
-                    case "push":
-                        return CommandType.C_PUSH;
-                }
-            }
-
-            return CommandType.C_ARITHMETIC;
         }
 
         public string GetCurrentLine()
